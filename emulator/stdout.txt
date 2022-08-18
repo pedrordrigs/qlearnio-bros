@@ -1,0 +1,5 @@
+Reading config file E:\Mario AI\emulator\snes9x.conf.
+Saving	config file	E:\Mario AI\emulator\snes9x.conf
+No ROM file header found.
+Map_LoROMMap
+"SUPER MARIOWORLD" [bad checksum] LoROM, 4Mbits, ROM+RAM+BAT, NTSC, SRAM:16Kbits, ID:____, CRC32:B932B279
