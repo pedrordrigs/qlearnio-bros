@@ -21,7 +21,7 @@ def fitnessFunction():
     # Encontrar endereço de memória relacionado ao score
     # Levar em consideração distância percorrida e tempo no score fitness
 
-    # (Δt * Sf) - score
+    # (Sf/Δt) + score
 
 def randomActions():
     # Desempenhar comandos aleatórios
