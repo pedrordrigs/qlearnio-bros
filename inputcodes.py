@@ -1,6 +1,8 @@
 # https://gist.github.com/tracend/912308
 
-LEFT = 0xCB    
-RIGHT = 0xCD
+LEFT = 0x10  
+RIGHT = 0x11
 JUMP = 0x2E
 SPIN = 0x2F
+RUN = 0x2D
+RESET = 0x3B
