@@ -11,6 +11,7 @@ def interest_region(img, vertices):
 def process_img(img):
     vertices = np.array([[0, 640], [0, 150], [738, 150], [738, 640]])
     processed_img = interest_region(img, [vertices])
+    cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return processed_img
 
 def hook():
