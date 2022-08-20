@@ -2,16 +2,20 @@ from windowhook import hook
 from directkeys import PressKey, ReleaseKey
 from memoryread import memoryReset, memoryValues
 from inputcodes import RUN, JUMP, SPIN, LEFT, RIGHT, RESET
+from dqnetwork2 import dqNetwork
+from memory import Memory
 
 import time
 import random
 from skimage import transform
 import numpy as np
 import matplotlib.pyplot as plt
-# import tensorflow as tf      
+import tensorflow as tf      
 from collections import deque
 import warnings
 warnings.filterwarnings('ignore')
+
+stack_size = 4
 
 def stack_frames(stacked_frames, state, is_new_episode):
     # Preprocess frame
@@ -39,22 +43,24 @@ def stack_frames(stacked_frames, state, is_new_episode):
     return stacked_state, stacked_frames
 
 def keyPress(key, action_time):
-    if(key == [1, 0, 0, 0, 0]):
+    if(key == [1, 0, 0]):
         key = JUMP
-    if(key == [0, 1, 0, 0, 0]):
-        key = SPIN
-    if(key == [0, 0, 1, 0, 0]):
-        key = RUN
-    if(key == [0, 0, 0, 1, 0]):
+    # if(key == [0, 1, 0, 0, 0]):
+    #     key = SPIN
+    # if(key == [0, 0, 1, 0, 0]):
+    #     key = RUN
+    if(key == [0, 1, 0]):
         key = LEFT
-    if(key == [0, 0, 0, 0, 1]):
+    if(key == [0, 0, 1]):
         key = RIGHT
     PressKey(key)
     time.sleep(action_time)
     ReleaseKey(key)
 
-def fitnessFunction(score, distance, deltat):
-    fitness = score/3 + ((distance*5)/deltat)
+def fitnessFunction(score, distance, deltat, death):
+    fitness = (score*3 + ((distance*6)/deltat))
+    if(death == 9 or death == 9225):
+        fitness = fitness-500
     return fitness
     # Acessar endereços de memória do emulador
     # Encontrar endereço de memória relacionado ao score e distancia
@@ -65,150 +71,19 @@ def fitnessFunction(score, distance, deltat):
     # X Position address - 000094 (X-axis)
 
 def randomActions():
-    JUMP = [1, 0, 0, 0, 0]
-    SPIN = [0, 1, 0, 0, 0]
-    RUN = [0, 0, 1, 0, 0]
-    LEFT = [0, 0, 0, 1, 0]
-    RIGHT = [0, 0, 0, 0, 1]
-    possible_actions = [JUMP, SPIN, RUN, LEFT, RIGHT]
+    JUMP = [1, 0, 0]
+    LEFT = [0, 1, 0]
+    RIGHT = [0, 0, 1]
+    possible_actions = [JUMP, LEFT, RIGHT]
     return possible_actions
     # Desempenhar comandos aleatórios
     # Calcular e retornar fit de cada individuo
     # Utilizar conceitos evolucionais
 
 def preprocessing(frame):
-    preprocessed_frame = transform.resize(normalized_frame, [84,84])
+    preprocessed_frame = transform.resize(frame, [84,84])
     return preprocessed_frame
-    # Scaledown + Greyscale
     # 4 image stacking
-
-class DQNetwork:
-    def __init__(self, state_size, action_size, learning_rate, name='DQNetwork'):
-        self.state_size = state_size
-        self.action_size = action_size
-        self.learning_rate = learning_rate
-        
-        with tf.variable_scope(name):
-            # We create the placeholders
-            # *state_size means that we take each elements of state_size in tuple hence is like if we wrote
-            # [None, 84, 84, 4]
-            self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
-            self.actions_ = tf.placeholder(tf.float32, [None, 3], name="actions_")
-            
-            # Remember that target_Q is the R(s,a) + ymax Qhat(s', a')
-            self.target_Q = tf.placeholder(tf.float32, [None], name="target")
-            
-            """
-            First convnet:
-            CNN
-            BatchNormalization
-            ELU
-            """
-            # Input is 84x84x4
-            self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
-                                         filters = 32,
-                                         kernel_size = [8,8],
-                                         strides = [4,4],
-                                         padding = "VALID",
-                                          kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                         name = "conv1")
-            
-            self.conv1_batchnorm = tf.layers.batch_normalization(self.conv1,
-                                                   training = True,
-                                                   epsilon = 1e-5,
-                                                     name = 'batch_norm1')
-            
-            self.conv1_out = tf.nn.elu(self.conv1_batchnorm, name="conv1_out")
-            ## --> [20, 20, 32]
-            
-            
-            """
-            Second convnet:
-            CNN
-            BatchNormalization
-            ELU
-            """
-            self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
-                                 filters = 64,
-                                 kernel_size = [4,4],
-                                 strides = [2,2],
-                                 padding = "VALID",
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                 name = "conv2")
-        
-            self.conv2_batchnorm = tf.layers.batch_normalization(self.conv2,
-                                                   training = True,
-                                                   epsilon = 1e-5,
-                                                     name = 'batch_norm2')
-
-            self.conv2_out = tf.nn.elu(self.conv2_batchnorm, name="conv2_out")
-            ## --> [9, 9, 64]
-            
-            
-            """
-            Third convnet:
-            CNN
-            BatchNormalization
-            ELU
-            """
-            self.conv3 = tf.layers.conv2d(inputs = self.conv2_out,
-                                 filters = 128,
-                                 kernel_size = [4,4],
-                                 strides = [2,2],
-                                 padding = "VALID",
-                                kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                 name = "conv3")
-        
-            self.conv3_batchnorm = tf.layers.batch_normalization(self.conv3,
-                                                   training = True,
-                                                   epsilon = 1e-5,
-                                                     name = 'batch_norm3')
-
-            self.conv3_out = tf.nn.elu(self.conv3_batchnorm, name="conv3_out")
-            ## --> [3, 3, 128]
-            
-            
-            self.flatten = tf.layers.flatten(self.conv3_out)
-            ## --> [1152]
-            
-            
-            self.fc = tf.layers.dense(inputs = self.flatten,
-                                  units = 512,
-                                  activation = tf.nn.elu,
-                                       kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                name="fc1")
-            
-            
-            self.output = tf.layers.dense(inputs = self.fc, 
-                                           kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                                          units = 3, 
-                                        activation=None)
-
-  
-            # Q is our predicted Q value.
-            self.Q = tf.reduce_sum(tf.multiply(self.output, self.actions_), axis=1)
-            
-            
-            # The loss is the difference between our predicted Q_values and the Q_target
-            # Sum(Qtarget - Q)^2
-            self.loss = tf.reduce_mean(tf.square(self.target_Q - self.Q))
-            
-            self.optimizer = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
-
-class Memory():
-    def __init__(self, max_size):
-        self.buffer = deque(maxlen = max_size)
-    
-    def add(self, experience):
-        self.buffer.append(experience)
-    
-    def sample(self, batch_size):
-        buffer_size = len(self.buffer)
-        index = np.random.choice(np.arange(buffer_size),
-                                size = batch_size,
-                                replace = False)
-        
-        return [self.buffer[i] for i in index]
 
 def enviroment():
     random.seed(time)
@@ -217,7 +92,7 @@ def enviroment():
     while(1):
         values = memoryValues()
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
-            reward.append(fitnessFunction(values[1], values[2], deltat))
+            reward.append(fitnessFunction(values[1], values[2], deltat, values[0]))
             keyPress(RESET, action_time)
             memoryReset() # Reset Score
             deltat = 0
@@ -231,13 +106,36 @@ def enviroment():
     i += 1
     return reward
 
+def predict_action(explore_start, explore_stop, decay_rate, decay_step, state, action, sess, DQNetwork):
+    ## EPSILON GREEDY STRATEGY
+    # Choose action a from state s using epsilon greedy.
+    ## First we randomize a number
+    exp_exp_tradeoff = np.random.rand()
+
+    # Here we'll use an improved version of our epsilon greedy strategy used in Q-learning notebook
+    explore_probability = explore_stop + (explore_start - explore_stop) * np.exp(-decay_rate * decay_step)
+    
+    if (explore_probability > exp_exp_tradeoff):
+        # Make a random action (exploration)
+        action = random.choice(randomActions())
+        
+    else:
+        # Get action from Q-network (exploitation)
+        # Estimate the Qs values state
+        Qs = sess.run(DQNetwork.output, feed_dict = {DQNetwork.inputs_: state.reshape((1, *state.shape))})
+        
+        # Take the biggest Q value (= the best action)
+        choice = np.argmax(Qs)
+        action = randomActions()[int(choice)]
+                
+    return action, explore_probability
+
 def main():
-    stack_size = 4
     stacked_frames  =  deque([np.zeros((84,84), dtype=np.int) for i in range(stack_size)], maxlen=4) 
 
     ### MODEL HYPERPARAMETERS
     state_size = [84,84,4]      # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels) 
-    action_size = game.get_available_buttons_size()              # 3 possible actions: left, right, shoot
+    action_size = len(randomActions())             # 3 possible actions: left, right, shoot
     learning_rate =  0.0002      # Alpha (aka learning rate)
 
     ### TRAINING HYPERPARAMETERS
@@ -263,77 +161,192 @@ def main():
     ## TURN THIS TO TRUE IF YOU WANT TO RENDER THE ENVIRONMENT
     episode_render = False
 
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
+    
+    DQNetwork = dqNetwork(state_size, action_size, learning_rate)
 
-    DQNetwork = DQNetwork(state_size, action_size, learning_rate)
-
-        # Instantiate memory
+    # Instantiate memory
     memory = Memory(max_size = memory_size)
 
     # Render the environment
 
     random.seed(time)
     deltat = 0
-    reward = []
+    reward = 0
+    done = False
 
     for i in range(pretrain_length):
         values = memoryValues()
+        death = False
         if i == 0:
             # First we need a state
             state = hook()
+            print(state.shape)
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
+        # Random Action
+        action = random.choice(randomActions())
+        action_time = 0.1
+        keyPress(action, action_time)
+
+        # Reward for action
+        deltat += (0.041 + action_time)
+        reward = fitnessFunction(values[1], values[2], deltat, values[0])
+        time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
+
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
-            reward.append(fitnessFunction(values[1], values[2], deltat))
+            done = True
+
+            next_state = np.zeros(state.shape)
+            memory.add((state, action, reward, next_state, done))
+
             keyPress(RESET, action_time)
             memoryReset() # Reset Score
             deltat = 0
-            i += 1
-        else:
-            action = random.choice(randomActions())
-            action_time = random.randint(1, 50)/100
-            keyPress(action, action_time)
-            time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
-            deltat += (0.041 + action_time)
-    i += 1
-        if i == 0:
-            # First we need a state
-            state = game.get_state().screen_buffer
+
+            state = hook()
             state, stacked_frames = stack_frames(stacked_frames, state, True)
-        
-        # Random action
-        action = random.choice(possible_actions)
-        
-        # Get the rewards
-        reward = game.make_action(action)
-        
-        # Look if the episode is finished
-        done = game.is_episode_finished()
-        
-        # If we're dead
-        if done:
-            # We finished the episode
-            next_state = np.zeros(state.shape)
-            
-            # Add experience to memory
-            memory.add((state, action, reward, next_state, done))
-            
-            # Start a new episode
-            game.new_episode()
-            
-            # First we need a state
-            state = game.get_state().screen_buffer
-            
-            # Stack the frames
-            state, stacked_frames = stack_frames(stacked_frames, state, True)
-            
         else:
-            # Get the next state
-            next_state = game.get_state().screen_buffer
+            next_state = hook()
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
-            
-            # Add experience to memory
             memory.add((state, action, reward, next_state, done))
-            
-            # Our state is now the next_state
             state = next_state
+
+    # Setup TensorBoard Writer
+    writer = tf.compat.v1.summary.FileWriter("/tensorboard/dqn/1")
+     ## Losses
+    tf.compat.v1.summary.scalar("Loss", DQNetwork.loss)
+
+    write_op = tf.compat.v1.summary.merge_all()
+
+    saver = tf.compat.v1.train.Saver()
+
+    saver.restore(sess, "./models/model.ckpt")
+# --------------------------------------------------------------------------------------------
+
+    if training == True:
+        with tf.compat.v1.Session() as sess:
+            # Initialize the variables
+            sess.run(tf.compat.v1.global_variables_initializer())
+            
+            # Initialize the decay rate (that will use to reduce epsilon) 
+            decay_step = 0
+
+            # Init the game
+
+            for episode in range(total_episodes):
+                # Set step to 0
+                step = 0
+                keyPress(RESET, action_time)
+                memoryReset() # Reset Score
+                values = memoryValues()
+                deltat = 0
+                # Initialize the rewards of the episode
+                episode_rewards = []
+                # Make a new episode and observe the first state
+                state = hook()
+                # Remember that stack frame function also call our preprocess function.
+                state, stacked_frames = stack_frames(stacked_frames, state, True)
+
+                while step < max_steps:
+                    values = memoryValues()
+                    step += 1
+                    # Increase decay_step
+                    decay_step +=1
+                    action_time = random.randint(1, 50)/100
+                    # Predict the action to take and take it
+                    action, explore_probability = predict_action(explore_start, explore_stop, decay_rate, decay_step, state, randomActions(), sess, DQNetwork)
+                    keyPress(action, action_time)
+                    # Do the action
+                    deltat += (0.041 + action_time)
+                    reward = fitnessFunction(values[1], values[2], deltat, values[0])
+                    time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
+                    # Look if the episode is finished
+                    
+                    # Add the reward to total reward
+                    episode_rewards.append(reward)
+
+                    # If the game is finished
+                    if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
+                        # the episode ends so no next state
+                        next_state = np.zeros((84,84), dtype=np.int)
+                        next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
+
+                        # Set step = max_steps to end the episode
+                        step = max_steps
+
+                        # Get the total reward of the episode
+                        total_reward = np.sum(episode_rewards)
+
+                        print('Episode: {}'.format(episode),
+                                'Total reward: {}'.format(total_reward),
+                                'Training loss: {:.4f}'.format(loss),
+                                'Explore P: {:.4f}'.format(explore_probability))
+
+                        memory.add((state, action, reward, next_state, done))
+
+                        keyPress(RESET, action_time)
+                        memoryReset() # Reset Score
+                        deltat = 0
+
+                    else:
+                        # Get the next state
+                        next_state = hook()
+                        # Stack the frame of the next_state
+                        next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
+                        
+
+                        # Add experience to memory
+                        memory.add((state, action, reward, next_state, done))
+                        
+                        # st+1 is now our current state
+                        state = next_state
+
+                    ### LEARNING PART            
+                    # Obtain random mini-batch from memory
+                    batch = memory.sample(batch_size)
+                    states_mb = np.array([each[0] for each in batch], ndmin=3)
+                    actions_mb = np.array([each[1] for each in batch])
+                    rewards_mb = np.array([each[2] for each in batch]) 
+                    next_states_mb = np.array([each[3] for each in batch], ndmin=3)
+                    dones_mb = np.array([each[4] for each in batch])
+
+                    target_Qs_batch = []
+
+                    # Get Q values for next_state 
+                    Qs_next_state = sess.run(DQNetwork.output, feed_dict = {DQNetwork.inputs_: next_states_mb})
+                    
+                    # Set Q_target = r if the episode ends at s+1, otherwise set Q_target = r + gamma*maxQ(s', a')
+                    for i in range(0, len(batch)):
+                        terminal = dones_mb[i]
+
+                        # If we are in a terminal state, only equals reward
+                        if terminal:
+                            target_Qs_batch.append(rewards_mb[i])
+                            
+                        else:
+                            target = rewards_mb[i] + gamma * np.max(Qs_next_state[i])
+                            target_Qs_batch.append(target)
+                            
+
+                    targets_mb = np.array([each for each in target_Qs_batch])
+
+                    loss, _ = sess.run([DQNetwork.loss, DQNetwork.optimizer],
+                                        feed_dict={DQNetwork.inputs_: states_mb,
+                                                DQNetwork.target_Q: targets_mb,
+                                                DQNetwork.actions_: actions_mb})
+
+                    summary = sess.run(write_op, feed_dict={DQNetwork.inputs_: states_mb,
+                                                    DQNetwork.target_Q: targets_mb,
+                                                    DQNetwork.actions_: actions_mb})
+                    writer.add_summary(summary, episode)
+                    writer.flush()
+                    # Write TF Summaries
+
+                # Save model every 5 episodes
+                if episode % 5 == 0:
+                    save_path = ""
+                    save_path = saver.save(sess, "./models/model.ckpt")
+                    print("Model Saved")
+
+main()

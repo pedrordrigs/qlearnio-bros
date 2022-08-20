@@ -9,12 +9,12 @@ def interest_region(img, vertices):
     return masked
 
 def process_img(img):
-    vertices = np.array([[0, 640], [0, 150], [738, 150], [738, 640]])
+    vertices = np.array([[0, 640], [0, 200], [738, 200], [738, 640]])
     processed_img = interest_region(img, [vertices])
-    cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    processed_img = cv2.cvtColor(processed_img, cv2.COLOR_BGR2GRAY)
     return processed_img
 
 def hook():
-    screen = np.array(ImageGrab.grab(bbox=(0,40,738,640)))
+    screen = np.array(ImageGrab.grab(bbox=(0,0,738,640)))
     processed_image = process_img(screen)
     return processed_image
