@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow import keras
+import keras
 
 class dqNetwork:
     def __init__(self, state_size, action_size, learning_rate, name='DQNetwork'):
@@ -7,6 +7,7 @@ class dqNetwork:
         self.action_size = action_size
         self.learning_rate = learning_rate
         tf.compat.v1.disable_eager_execution()
+        
         with tf.compat.v1.variable_scope(name):
             # We create the placeholders
             # *state_size means that we take each elements of state_size in tuple hence is like if we wrote
@@ -29,7 +30,7 @@ class dqNetwork:
                                          kernel_size = [8,8],
                                          strides = [4,4],
                                          padding = "VALID",
-                                          kernel_initializer=tf.keras.initializers.GlorotNormal,
+                                          kernel_initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
                                          name = "conv1")
             
             self.conv1_batchnorm = tf.compat.v1.layers.batch_normalization(self.conv1,
@@ -52,7 +53,7 @@ class dqNetwork:
                                  kernel_size = [4,4],
                                  strides = [2,2],
                                  padding = "VALID",
-                                kernel_initializer=tf.keras.initializers.GlorotNormal,
+                                kernel_initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
                                  name = "conv2")
         
             self.conv2_batchnorm = tf.compat.v1.layers.batch_normalization(self.conv2,
@@ -75,7 +76,7 @@ class dqNetwork:
                                  kernel_size = [4,4],
                                  strides = [2,2],
                                  padding = "VALID",
-                                kernel_initializer=tf.keras.initializers.GlorotNormal,
+                                kernel_initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
                                  name = "conv3")
         
             self.conv3_batchnorm = tf.compat.v1.layers.batch_normalization(self.conv3,
@@ -94,22 +95,22 @@ class dqNetwork:
             self.fc = tf.compat.v1.layers.dense(inputs = self.flatten,
                                   units = 512,
                                   activation = tf.nn.elu,
-                                       kernel_initializer=tf.keras.initializers.glorot_normal,
+                                       kernel_initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
                                 name="fc1")
             
             
             self.output = tf.compat.v1.layers.dense(inputs = self.fc, 
-                                           kernel_initializer=tf.keras.initializers.glorot_normal,
+                                           kernel_initializer=tf.compat.v1.keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform"),
                                           units = 3, 
                                         activation=None)
 
   
             # Q is our predicted Q value.
-            self.Q = tf.reduce_sum(tf.multiply(self.output, self.actions_), axis=1)
+            self.Q = tf.reduce_sum(input_tensor=tf.multiply(self.output, self.actions_), axis=1)
             
             
             # The loss is the difference between our predicted Q_values and the Q_target
             # Sum(Qtarget - Q)^2
-            self.loss = tf.reduce_mean(tf.square(self.target_Q - self.Q))
+            self.loss = tf.reduce_mean(input_tensor=tf.square(self.target_Q - self.Q))
             
             self.optimizer = tf.compat.v1.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)

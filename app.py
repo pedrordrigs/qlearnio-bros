@@ -2,7 +2,7 @@ from windowhook import hook
 from directkeys import PressKey, ReleaseKey
 from memoryread import memoryReset, memoryValues
 from inputcodes import RUN, JUMP, SPIN, LEFT, RIGHT, RESET
-from dqnetwork2 import dqNetwork
+from dqnetwork import dqNetwork
 from memory import Memory
 
 import time
@@ -42,20 +42,31 @@ def stack_frames(stacked_frames, state, is_new_episode):
     
     return stacked_state, stacked_frames
 
-def keyPress(key, action_time):
-    if(key == [1, 0, 0]):
-        key = JUMP
+def keyPress(key, past_action):
     # if(key == [0, 1, 0, 0, 0]):
     #     key = SPIN
     # if(key == [0, 0, 1, 0, 0]):
     #     key = RUN
-    if(key == [0, 1, 0]):
+
+    if(key == [1, 0, 0]):
+        key = JUMP
+    elif(key == [0, 1, 0]):
         key = LEFT
-    if(key == [0, 0, 1]):
+    elif(key == [0, 0, 1]):
         key = RIGHT
-    PressKey(key)
-    time.sleep(action_time)
-    ReleaseKey(key)
+    if(past_action == [1, 0, 0]):
+        past_action = JUMP
+    elif(past_action == [0, 1, 0]):
+        past_action = LEFT
+    elif(past_action == [0, 0, 1]):
+        past_action = RIGHT
+
+    if(key == RESET):
+        PressKey(RESET)
+        ReleaseKey(RESET)
+    else:
+        ReleaseKey(past_action)
+        PressKey(key)
 
 def fitnessFunction(score, distance, deltat, death):
     fitness = (score*3 + ((distance*6)/deltat))
@@ -93,15 +104,15 @@ def enviroment():
         values = memoryValues()
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
             reward.append(fitnessFunction(values[1], values[2], deltat, values[0]))
-            keyPress(RESET, action_time)
+            # keyPress(RESET, action_time)
             memoryReset() # Reset Score
             deltat = 0
             break
 
         action = random.choice(randomActions())
         action_time = random.randint(1, 50)/100
-        keyPress(action, action_time)
-        time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
+        # keyPress(action, action_time)
+        # time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
         deltat += (0.041 + action_time)
     i += 1
     return reward
@@ -136,15 +147,15 @@ def main():
     ### MODEL HYPERPARAMETERS
     state_size = [84,84,4]      # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels) 
     action_size = len(randomActions())             # 3 possible actions: left, right, shoot
-    learning_rate =  0.0002      # Alpha (aka learning rate)
+    learning_rate =  0.0005      # Alpha (aka learning rate)
 
     ### TRAINING HYPERPARAMETERS
-    total_episodes = 500        # Total episodes for training
-    max_steps = 100              # Max possible steps in an episode
+    total_episodes = 100        # Total episodes for training
+    max_steps = 200              # Max possible steps in an episode
     batch_size = 64             
 
     # Exploration parameters for epsilon greedy strategy
-    explore_start = 1.0            # exploration probability at start
+    explore_start = 0.8           # exploration probability at start
     explore_stop = 0.01            # minimum exploration probability 
     decay_rate = 0.0001            # exponential decay rate for exploration prob
 
@@ -174,6 +185,7 @@ def main():
     deltat = 0
     reward = 0
     done = False
+    action = JUMP
 
     for i in range(pretrain_length):
         values = memoryValues()
@@ -184,15 +196,16 @@ def main():
             print(state.shape)
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
+
+        past_action = action
+
         # Random Action
         action = random.choice(randomActions())
-        action_time = 0.1
-        keyPress(action, action_time)
+        keyPress(action, past_action)
 
         # Reward for action
-        deltat += (0.041 + action_time)
+        deltat += (0.05)
         reward = fitnessFunction(values[1], values[2], deltat, values[0])
-        time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
 
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
             done = True
@@ -200,7 +213,7 @@ def main():
             next_state = np.zeros(state.shape)
             memory.add((state, action, reward, next_state, done))
 
-            keyPress(RESET, action_time)
+            keyPress(action, past_action)
             memoryReset() # Reset Score
             deltat = 0
 
@@ -220,12 +233,10 @@ def main():
     write_op = tf.compat.v1.summary.merge_all()
 
     saver = tf.compat.v1.train.Saver()
-
-    saver.restore(sess, "./models/model.ckpt")
 # --------------------------------------------------------------------------------------------
-
     if training == True:
         with tf.compat.v1.Session() as sess:
+            saver.restore(sess, "./models/model.ckpt")
             # Initialize the variables
             sess.run(tf.compat.v1.global_variables_initializer())
             
@@ -237,7 +248,7 @@ def main():
             for episode in range(total_episodes):
                 # Set step to 0
                 step = 0
-                keyPress(RESET, action_time)
+                keyPress(RESET, past_action)
                 memoryReset() # Reset Score
                 values = memoryValues()
                 deltat = 0
@@ -253,14 +264,14 @@ def main():
                     step += 1
                     # Increase decay_step
                     decay_step +=1
-                    action_time = random.randint(1, 50)/100
+                    past_action = action
                     # Predict the action to take and take it
                     action, explore_probability = predict_action(explore_start, explore_stop, decay_rate, decay_step, state, randomActions(), sess, DQNetwork)
-                    keyPress(action, action_time)
+                    keyPress(action, past_action)
                     # Do the action
-                    deltat += (0.041 + action_time)
+                    deltat += (0.04)
                     reward = fitnessFunction(values[1], values[2], deltat, values[0])
-                    time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
+                    # time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
                     # Look if the episode is finished
                     
                     # Add the reward to total reward
@@ -285,7 +296,7 @@ def main():
 
                         memory.add((state, action, reward, next_state, done))
 
-                        keyPress(RESET, action_time)
+                        keyPress(RESET, past_action)
                         memoryReset() # Reset Score
                         deltat = 0
 
