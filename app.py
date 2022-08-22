@@ -15,6 +15,9 @@ from collections import deque
 import warnings
 warnings.filterwarnings('ignore')
 
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
 stack_size = 4
 
 def stack_frames(stacked_frames, state, is_new_episode):
@@ -47,7 +50,7 @@ def keyPress(key, past_action):
     #     key = SPIN
     # if(key == [0, 0, 1, 0, 0]):
     #     key = RUN
-
+    
     if(key == [1, 0, 0]):
         key = JUMP
     elif(key == [0, 1, 0]):
@@ -62,17 +65,20 @@ def keyPress(key, past_action):
         past_action = RIGHT
 
     if(key == RESET):
+        ReleaseKey(past_action)
         PressKey(RESET)
+        time.sleep(0.05)
         ReleaseKey(RESET)
+
     else:
         ReleaseKey(past_action)
         PressKey(key)
 
-def fitnessFunction(score, distance, deltat, death):
-    fitness = (score*3 + ((distance*6)/deltat))
+def fitnessFunction(score, distance, deltat, death, coins, past_reward):
+    fitness = (score*8 + ((distance*6)/deltat)) + coins*100
     if(death == 9 or death == 9225):
-        fitness = fitness-500
-    return fitness
+        fitness = fitness-2000
+    return fitness - past_reward
     # Acessar endereços de memória do emulador
     # Encontrar endereço de memória relacionado ao score e distancia
     # Levar em consideração score, distância percorrida e tempo para calcular o reward
@@ -94,16 +100,17 @@ def randomActions():
 def preprocessing(frame):
     preprocessed_frame = transform.resize(frame, [84,84])
     return preprocessed_frame
-    # 4 image stacking
+    # 4 image stackingcq
 
 def enviroment():
     random.seed(time)
     deltat = 0
     reward = []
+    past_reward = 0
     while(1):
         values = memoryValues()
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
-            reward.append(fitnessFunction(values[1], values[2], deltat, values[0]))
+            reward.append(fitnessFunction(values[1], values[2], deltat, values[0]), values[4], past_reward)
             # keyPress(RESET, action_time)
             memoryReset() # Reset Score
             deltat = 0
@@ -147,15 +154,15 @@ def main():
     ### MODEL HYPERPARAMETERS
     state_size = [84,84,4]      # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels) 
     action_size = len(randomActions())             # 3 possible actions: left, right, shoot
-    learning_rate =  0.0005      # Alpha (aka learning rate)
+    learning_rate =  0.0003      # Alpha (aka learning rate)
 
     ### TRAINING HYPERPARAMETERS
-    total_episodes = 100        # Total episodes for training
-    max_steps = 200              # Max possible steps in an episode
+    total_episodes = 1000        # Total episodes for training
+    max_steps = 500             # Max possible steps in an episode
     batch_size = 64             
 
     # Exploration parameters for epsilon greedy strategy
-    explore_start = 0.9           # exploration probability at start
+    explore_start = 0.5           # exploration probability at start
     explore_stop = 0.01            # minimum exploration probability 
     decay_rate = 0.0001            # exponential decay rate for exploration prob
 
@@ -186,7 +193,7 @@ def main():
     reward = 0
     done = False
     action = JUMP
-
+    past_reward = 0
     for i in range(pretrain_length):
         values = memoryValues()
         death = False
@@ -205,15 +212,16 @@ def main():
 
         # Reward for action
         deltat += (0.05)
-        reward = fitnessFunction(values[1], values[2], deltat, values[0])
-
+        reward = fitnessFunction(values[1], values[2], deltat, values[0], values[4], past_reward)
+        past_reward = reward
+        values = memoryValues()
         if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
             done = True
 
             next_state = np.zeros(state.shape)
             memory.add((state, action, reward, next_state, done))
 
-            keyPress(action, past_action)
+            keyPress(RESET, past_action)
             memoryReset() # Reset Score
             deltat = 0
 
@@ -227,7 +235,7 @@ def main():
 
     # Setup TensorBoard Writer
     writer = tf.compat.v1.summary.FileWriter("/tensorboard/dqn/1")
-     ## Losses
+     ## Lossesqwwqwwqwwwwwcqcc
     tf.compat.v1.summary.scalar("Loss", DQNetwork.loss)
 
     write_op = tf.compat.v1.summary.merge_all()
@@ -248,6 +256,7 @@ def main():
             for episode in range(total_episodes):
                 # Set step to 0
                 step = 0
+                past_reward = 0
                 keyPress(RESET, past_action)
                 memoryReset() # Reset Score
                 values = memoryValues()
@@ -258,7 +267,6 @@ def main():
                 state = getFrame()
                 # Remember that stack frame function also call our preprocess function.
                 state, stacked_frames = stack_frames(stacked_frames, state, True)
-
                 while step < max_steps:
                     values = memoryValues()
                     step += 1
@@ -270,7 +278,8 @@ def main():
                     keyPress(action, past_action)
                     # Do the action
                     deltat += (0.04)
-                    reward = fitnessFunction(values[1], values[2], deltat, values[0])
+                    reward = fitnessFunction(values[1], values[2], deltat, values[0], values[4], past_reward)
+                    past_reward = reward
                     # time.sleep(0.041) # Framerate 1/24 = 0.041seg/frame = 24fps
                     # Look if the episode is finished
                     
@@ -278,6 +287,7 @@ def main():
                     episode_rewards.append(reward)
 
                     # If the game is finished
+                    values = memoryValues()
                     if(values[0] == 9 or values[0] == 9225): # Death Flags Memory Address - 0071
                         # the episode ends so no next state
                         next_state = np.zeros((84,84), dtype=np.int)
