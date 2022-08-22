@@ -1,4 +1,4 @@
-from windowhook import hook
+from getframe import getFrame
 from directkeys import PressKey, ReleaseKey
 from memoryread import memoryReset, memoryValues
 from inputcodes import RUN, JUMP, SPIN, LEFT, RIGHT, RESET
@@ -155,7 +155,7 @@ def main():
     batch_size = 64             
 
     # Exploration parameters for epsilon greedy strategy
-    explore_start = 0.8           # exploration probability at start
+    explore_start = 0.9           # exploration probability at start
     explore_stop = 0.01            # minimum exploration probability 
     decay_rate = 0.0001            # exponential decay rate for exploration prob
 
@@ -192,7 +192,7 @@ def main():
         death = False
         if i == 0:
             # First we need a state
-            state = hook()
+            state = getFrame()
             print(state.shape)
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
@@ -217,10 +217,10 @@ def main():
             memoryReset() # Reset Score
             deltat = 0
 
-            state = hook()
+            state = getFrame()
             state, stacked_frames = stack_frames(stacked_frames, state, True)
         else:
-            next_state = hook()
+            next_state = getFrame()
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             memory.add((state, action, reward, next_state, done))
             state = next_state
@@ -255,7 +255,7 @@ def main():
                 # Initialize the rewards of the episode
                 episode_rewards = []
                 # Make a new episode and observe the first state
-                state = hook()
+                state = getFrame()
                 # Remember that stack frame function also call our preprocess function.
                 state, stacked_frames = stack_frames(stacked_frames, state, True)
 
@@ -302,7 +302,7 @@ def main():
 
                     else:
                         # Get the next state
-                        next_state = hook()
+                        next_state = getFrame()
                         # Stack the frame of the next_state
                         next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
                         
