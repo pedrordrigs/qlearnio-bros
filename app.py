@@ -20,10 +20,19 @@ warnings.filterwarnings('ignore')
 # os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 # definir emulador como programa padrão para executar arquivo .smc
-os.startfile("E:\Mario AI\emulator\Roms\Super Mario World (U).smc")
-time.sleep(1)
 
-stack_size = 4
+def emulator_setup:
+    os.startfile("E:\Mario AI\emulator\Roms\Super Mario World (U).smc")
+    time.sleep(1)
+    # setup emulator on savestate 1
+    past_action = RESET
+    keyPress(RESET, past_action)
+    PressKey(0x01)
+    time.sleep(0.3)
+    ReleaseKey(0x01)
+    PressKey(0x0D)
+    time.sleep(0.3)
+    ReleaseKey(0x0D)
 
 def stack_frames(stacked_frames, state, is_new_episode):
     # Preprocess frame
@@ -154,8 +163,10 @@ def predict_action(explore_start, explore_stop, decay_rate, decay_step, state, a
     return action, explore_probability
 
 def main():
+    emulator_setup()
+    stack_size = 4
     stacked_frames  =  deque([np.zeros((84,84), dtype=np.int) for i in range(stack_size)], maxlen=4) 
-
+    
     ### MODEL HYPERPARAMETERS
     state_size = [84,84,4]      # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels) 
     action_size = len(randomActions())             # 3 possible actions: left, right, shoot
@@ -373,16 +384,5 @@ def main():
                     save_path = ""
                     save_path = saver.save(sess, "./models/model.ckpt")
                     print("Model Saved")
-
-# setup emulator on savestate 1
-past_action = RESET
-keyPress(RESET, past_action)
-PressKey(0x01)
-time.sleep(0.3)
-ReleaseKey(0x01)
-PressKey(0x0D)
-time.sleep(0.3)
-ReleaseKey(0x0D)
-
 
 main()
