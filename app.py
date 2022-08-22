@@ -5,6 +5,7 @@ from inputcodes import RUN, JUMP, SPIN, LEFT, RIGHT, RESET
 from dqnetwork import dqNetwork
 from memory import Memory
 
+import os
 import time
 import random
 from skimage import transform
@@ -15,8 +16,12 @@ from collections import deque
 import warnings
 warnings.filterwarnings('ignore')
 
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# Usar CPU para inferir e treinar
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+# definir emulador como programa padrão para executar arquivo .smc
+os.startfile("E:\Mario AI\emulator\Roms\Super Mario World (U).smc")
+time.sleep(1)
 
 stack_size = 4
 
@@ -75,9 +80,9 @@ def keyPress(key, past_action):
         PressKey(key)
 
 def fitnessFunction(score, distance, deltat, death, coins, past_reward):
-    fitness = (score*8 + ((distance*6)/deltat)) + coins*100
+    fitness = (score*5 + ((distance)/deltat)) + coins*100
     if(death == 9 or death == 9225):
-        fitness = fitness-2000
+        fitness = fitness/4
     return fitness - past_reward
     # Acessar endereços de memória do emulador
     # Encontrar endereço de memória relacionado ao score e distancia
@@ -100,7 +105,7 @@ def randomActions():
 def preprocessing(frame):
     preprocessed_frame = transform.resize(frame, [84,84])
     return preprocessed_frame
-    # 4 image stackingcq
+    # 4 image stacking
 
 def enviroment():
     random.seed(time)
@@ -154,15 +159,15 @@ def main():
     ### MODEL HYPERPARAMETERS
     state_size = [84,84,4]      # Our input is a stack of 4 frames hence 84x84x4 (Width, height, channels) 
     action_size = len(randomActions())             # 3 possible actions: left, right, shoot
-    learning_rate =  0.0003      # Alpha (aka learning rate)
+    learning_rate =  0.0001      # Alpha (aka learning rate)
 
     ### TRAINING HYPERPARAMETERS
-    total_episodes = 1000        # Total episodes for training
+    total_episodes = 2000        # Total episodes for training
     max_steps = 500             # Max possible steps in an episode
     batch_size = 64             
 
     # Exploration parameters for epsilon greedy strategy
-    explore_start = 0.5           # exploration probability at start
+    explore_start = 0.9           # exploration probability at start
     explore_stop = 0.01            # minimum exploration probability 
     decay_rate = 0.0001            # exponential decay rate for exploration prob
 
@@ -200,7 +205,6 @@ def main():
         if i == 0:
             # First we need a state
             state = getFrame()
-            print(state.shape)
             state, stacked_frames = stack_frames(stacked_frames, state, True)
 
 
@@ -369,5 +373,16 @@ def main():
                     save_path = ""
                     save_path = saver.save(sess, "./models/model.ckpt")
                     print("Model Saved")
+
+# setup emulator on savestate 1
+past_action = RESET
+keyPress(RESET, past_action)
+PressKey(0x01)
+time.sleep(0.3)
+ReleaseKey(0x01)
+PressKey(0x0D)
+time.sleep(0.3)
+ReleaseKey(0x0D)
+
 
 main()
