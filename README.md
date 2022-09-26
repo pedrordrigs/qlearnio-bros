@@ -60,5 +60,20 @@ I've used Cheat Engine to reverse engineer the game so I could find the static a
 
 # Actions
 
+One of the first things we got to have in mind are which actions that our model can take as an output.
+
+In the first iteration of this project I've decided to let our model run right, left and jump. That's enough for it to finish the level and also explore.
+
+So we should make an action matrix that may look like this:
+
+RIGHT = [1,0,0]
+LEFT = [0,1,0]
+JUMP = [0,0,1]
+
+You can check the keypress function on app.py to learn how the neural network output turn into a input to our game.
+
 # Game Loop
 
+That's where we replicate the game behaviour such as the actions inputs, game resets, control how many generations and episodes we are in and so on.
+
+You can check the loops on app.py which slight differences.
